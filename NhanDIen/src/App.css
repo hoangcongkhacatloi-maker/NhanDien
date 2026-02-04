@@ -1,0 +1,29 @@
+/* ================== LAYOUT ================== */
+:root {
+  --primary: #4f46e5;
+  --primary-hover: #4338ca;
+  --success: #10b981;
+  --danger: #ef4444;
+  --bg-main: #f1f5f9;
+  --text-main: #1e293b;
+  --radius-lg: 16px;
+  --radius-md: 10px;
+  --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+.layout {
+  display: flex;
+  min-height: 100vh;   /* dùng min-height thay vì height */
+  width: 100%;
+  overflow: hidden;   /* chặn scroll ngoài */
+}
+
+/* ================== MAIN CONTENT ================== */
+.main {
+  flex: 1;
+  background: #f5f6fa;
+  overflow-y: auto;   /* chỉ scroll dọc */
+  overflow-x: hidden;
+  padding: 20px;
+  box-sizing: border-box;
+}

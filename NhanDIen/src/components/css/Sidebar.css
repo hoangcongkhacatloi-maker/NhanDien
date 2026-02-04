@@ -1,0 +1,30 @@
+.sidebar {
+  width: 240px;
+  background: #1e1e2f;
+  color: #fff;
+  padding: 20px;
+}
+
+.sidebar-title {
+  margin-bottom: 30px;
+}
+
+.sidebar-nav a {
+  display: block;
+  padding: 10px;
+  color: #cfd3ff;
+  text-decoration: none;
+  border-radius: 6px;
+}
+
+.sidebar-nav a.active {
+  background: #3f51ff;
+  color: #fff;
+}
+
+.sidebar-footer {
+  position: absolute;
+  bottom: 20px;
+  font-size: 12px;
+  opacity: 0.6;
+}

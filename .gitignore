@@ -1,0 +1,11 @@
+captured_faces
+node_modules
+insightface-env
+face-mask,-glasses,-hat-3
+yolo26n.pt
+.venv
+embedding
+999_Lay_Mau_Train_IT
+yolov8m.pt
+my_model.zip
+999_Lay_Mau_Train_IT.rar

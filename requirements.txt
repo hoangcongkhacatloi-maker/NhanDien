@@ -1,0 +1,22 @@
+# Core API
+fastapi
+uvicorn[standard]
+pydantic
+
+# Computer Vision
+opencv-python
+numpy
+Pillow
+imageio
+
+# AI / Face Recognition
+insightface
+pygame
+onnxruntime-gpu
+
+ultralytics
+roboflow
+
+gtts pydub
+
+# pip install -r requirements.txt
