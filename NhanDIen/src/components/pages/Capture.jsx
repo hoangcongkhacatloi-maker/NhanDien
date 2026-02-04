@@ -65,9 +65,14 @@ function Capture() {
     try {
       const res = await fetch(`${BACKEND_URL}/capture/preview`);
       const blob = await res.blob();
-      const imgUrl = URL.createObjectURL(blob);
-
-      setPreviewImages((prev) => [imgUrl, ...prev]);
+      
+      // Chuyển Blob thành Base64
+      const reader = new FileReader();
+      reader.readAsDataURL(blob);
+      reader.onloadend = () => {
+        const base64data = reader.result;
+        setPreviewImages((prev) => [base64data, ...prev]); // Lưu Base64 vào state
+      };
     } catch {
       setStatus("❌ Không chụp được ảnh");
     }
@@ -79,12 +84,12 @@ function Capture() {
   };
 
   // ================= LƯU ẢNH =================
+  // Sửa lại hàm này trong Capture.js
   const handleCapture = async () => {
     if (previewImages.length === 0) {
       setStatus("⚠️ Chưa có ảnh");
       return;
     }
-
     if (!selectedFolder && (!name || !code)) {
       setStatus("⚠️ Thiếu Tên hoặc Mã NV");
       return;
@@ -99,20 +104,18 @@ function Capture() {
           folder: selectedFolder,
           name,
           code,
-          images: previewImages, // backend xử lý
+          images: previewImages, // Gửi toàn bộ mảng Base64 sang Python
         }),
       });
 
       const data = await res.json();
       if (data.success) {
-        setStatus(`✅ Đã lưu ${previewImages.length} ảnh`);
+        setStatus(`✅ Đã lưu khớp ${previewImages.length} ảnh`);
         setPreviewImages([]);
         if (!selectedFolder) loadFolders();
-      } else {
-        setStatus("❌ Lỗi lưu ảnh");
       }
     } catch {
-      setStatus("❌ Lỗi backend");
+      setStatus("❌ Lỗi kết nối server");
     }
   };
 

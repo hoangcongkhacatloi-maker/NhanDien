@@ -1,20 +1,38 @@
 [
   {
     "ten": "kha",
-    "ma_nv": "a6",
-    "photo_path": "captured_faces/kha-a6/2026-02-04_10-44-12.jpg",
-    "thoi_gian": "2026-02-04T10:44:12"
+    "ma_nv": "a45",
+    "photo_path": "captured_faces/kha-a45/2026-02-04_10-57-12.jpg",
+    "thoi_gian": "2026-02-04T10:57:12"
   },
   {
     "ten": "Duyen",
     "ma_nv": "a5",
-    "photo_path": "captured_faces/Duyen-a5/2026-02-04_10-44-24.jpg",
-    "thoi_gian": "2026-02-04T10:44:24"
+    "photo_path": "captured_faces/Duyen-a5/2026-02-04_10-57-33.jpg",
+    "thoi_gian": "2026-02-04T10:57:33"
   },
   {
-    "ten": "Luân",
-    "ma_nv": "a4",
-    "photo_path": "captured_faces/Luân-a4/2026-02-04_10-44-30.jpg",
-    "thoi_gian": "2026-02-04T10:44:30"
+    "ten": "Duyen",
+    "ma_nv": "a5",
+    "photo_path": "captured_faces/Duyen-a5/2026-02-04_11-00-01.jpg",
+    "thoi_gian": "2026-02-04T11:00:01"
+  },
+  {
+    "ten": "kha",
+    "ma_nv": "a45",
+    "photo_path": "captured_faces/kha-a45/2026-02-04_11-00-03.jpg",
+    "thoi_gian": "2026-02-04T11:00:03"
+  },
+  {
+    "ten": "kha",
+    "ma_nv": "a56",
+    "photo_path": "captured_faces/kha-a56/2026-02-04_11-04-48.jpg",
+    "thoi_gian": "2026-02-04T11:04:48"
+  },
+  {
+    "ten": "kha",
+    "ma_nv": "s55",
+    "photo_path": "captured_faces/kha-s55/2026-02-04_11-09-15.jpg",
+    "thoi_gian": "2026-02-04T11:09:15"
   }
 ]

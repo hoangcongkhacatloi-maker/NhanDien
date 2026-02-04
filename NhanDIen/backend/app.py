@@ -5,6 +5,7 @@ import json
 import numpy as np
 from datetime import datetime
 import pygame
+import base64
 import uvicorn
 from fastapi import FastAPI, Body, HTTPException, Response
 from fastapi.responses import StreamingResponse
@@ -172,15 +173,16 @@ def save_attendance(frame, name_raw):
     if "-" not in name_raw: return None
     ten, ma_nv = [x.strip() for x in name_raw.split("-", 1)]
     now = datetime.now()
-    today = now.strftime("%Y-%m-%d")
     
-    # Check Cooldown để tránh ghi liên tục 1 người
-    if ma_nv in last_processed_time and (time.time() - last_processed_time[ma_nv]) < COOLDOWN_SECONDS: 
-        return None
-    
-    # Đọc dữ liệu cũ an toàn
+    # BƯỚC 1: KIỂM TRA COOLDOWN (Ví dụ 300s = 5 phút mới lưu lại 1 lần)
+    # Nếu muốn lưu liên tục để test, hãy chỉnh COOLDOWN_SECONDS = 10 ở đầu file
+    if ma_nv in last_processed_time:
+        if (time.time() - last_processed_time[ma_nv]) < COOLDOWN_SECONDS:
+            return None # Vẫn trong thời gian chờ, không lưu thêm
+
+    # BƯỚC 2: ĐỌC DỮ LIỆU CŨ
     try:
-        if not os.path.exists(ATTENDANCE_FILE): 
+        if not os.path.exists(ATTENDANCE_FILE):
             data = []
         else:
             with open(ATTENDANCE_FILE, "r", encoding="utf-8") as f:
@@ -189,30 +191,34 @@ def save_attendance(frame, name_raw):
     except:
         data = []
 
-    # Check nếu hôm nay đã chấm công rồi thì thôi
-    if any(r.get("ma_nv") == ma_nv and r.get("thoi_gian", "").startswith(today) for r in data): 
-        return None
-
-    # Lưu ảnh
+    # BƯỚC 3: LƯU ẢNH (Mỗi tấm ảnh sẽ có tên theo giờ phút giây để không bị ghi đè)
     person_dir = os.path.join(CAPTURE_DIR, name_raw)
     os.makedirs(person_dir, exist_ok=True)
-    photo_name = f"{today}_{now.strftime('%H-%M-%S')}.jpg"
-    cv2.imwrite(os.path.join(person_dir, photo_name), frame)
-
-    # Ghi vào file JSON
-    data.append({
-        "ten": ten, 
-        "ma_nv": ma_nv, 
-        "photo_path": f"captured_faces/{name_raw}/{photo_name}", 
-        "thoi_gian": now.strftime("%Y-%m-%dT%H:%M:%S")
-    })
     
-    with open(ATTENDANCE_FILE, "w", encoding="utf-8") as f: 
+    # Tên file ảnh bao gồm Ngày_GiờPhútGiây để mỗi lần lưu là 1 file khác nhau
+    timestamp_str = now.strftime('%Y-%m-%d_%H-%M-%S')
+    photo_name = f"{timestamp_str}.jpg"
+    photo_full_path = os.path.join(person_dir, photo_name)
+    
+    cv2.imwrite(photo_full_path, frame)
+
+    # BƯỚC 4: GHI VÀO JSON LỊCH SỬ
+    new_record = {
+        "ten": ten,
+        "ma_nv": ma_nv,
+        "photo_path": f"captured_faces/{name_raw}/{photo_name}",
+        "thoi_gian": now.strftime("%Y-%m-%dT%H:%M:%S")
+    }
+    data.append(new_record)
+    
+    with open(ATTENDANCE_FILE, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=2)
 
+    # Cập nhật lại thời gian xử lý cuối cùng của nhân viên này
     last_processed_time[ma_nv] = time.time()
-    print(f"✅ Đã ghi nhận file cho: {ten}")
-    return name_raw # Trả về để gọi Audio
+    
+    print(f"📸 Đã lưu ảnh mới & Ghi danh: {ten} lúc {timestamp_str}")
+    return name_raw
 
 # ================== AI CORE (PHỐI HỢP YOLO & FACE) ==================
 def process_frame(frame):
@@ -340,38 +346,38 @@ def video(): return StreamingResponse(gen_frames(), media_type="multipart/x-mixe
 
 @app.post("/capture")
 def capture_image(payload: dict = Body(...)):
-    global latest_frame
-    if latest_frame is None:
-        raise HTTPException(status_code=400, detail="Không có frame từ camera")
-
+    selected_folder = payload.get("folder", "").strip()
     name = payload.get("name", "").strip()
     code = payload.get("code", "").strip()
-    
-    # 1. Định nghĩa Tên-Mã nhân viên (Dùng làm tên folder và tên file audio)
-    target = f"{name}-{code}" 
-    
-    # 2. Tạo folder ảnh: dataset/Tên-Mã
+    images_base64 = payload.get("images", []) # Nhận danh sách ảnh Base64
+
+    target = selected_folder if selected_folder else f"{name}-{code}"
     path = os.path.join(DATASET_FOLDER, target)
     os.makedirs(path, exist_ok=True)
-    
-    # Lưu ảnh vào folder vừa tạo
-    filename = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
-    cv2.imwrite(os.path.join(path, filename), latest_frame)
 
-    # 3. Tạo file âm thanh: audio/Tên-Mã.mp3
-    # Đảm bảo AUDIO_DIR đã được định nghĩa ở đầu file: AUDIO_DIR = os.path.join(BASE_DIR, "audio")
+    saved_count = 0
+    for img_data in images_base64:
+        try:
+            # Tách bỏ phần đầu "data:image/jpeg;base64,"
+            header, encoded = img_data.split(",", 1)
+            data = base64.b64decode(encoded)
+            
+            # Tạo tên file duy nhất
+            filename = f"cap_{datetime.now().strftime('%H%M%S_%f')}.jpg"
+            with open(os.path.join(path, filename), "wb") as f:
+                f.write(data)
+            saved_count += 1
+        except Exception as e:
+            print(f"❌ Lỗi lưu ảnh Base64: {e}")
+
+    # Tạo âm thanh nếu chưa có
     audio_path = os.path.join(AUDIO_DIR, f"{target}.mp3")
-    
     if not os.path.exists(audio_path):
-        # Truyền đúng target vào để gTTS tạo file
-        threading.Thread(
-            target=generate_audio_ai, 
-            args=(f"Xin chào {name}", audio_path), 
-            daemon=True
-        ).start()
+        display_name = target.split("-")[0] if "-" in target else target
+        generate_audio_ai(f"Xin chào {display_name}", audio_path)
 
     build_embeddings_db()
-    return {"success": True, "message": f"Đã lưu nhân viên {target} và đang tạo audio"}
+    return {"success": True, "message": f"Đã lưu {saved_count} ảnh vào {target}"}
 
 @app.get("/employees")
 def api_get_employees():
