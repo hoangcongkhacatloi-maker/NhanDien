@@ -2,7 +2,19 @@
   {
     "ten": "kha",
     "ma_nv": "a6",
-    "photo_path": "captured_faces/kha-a6/2026-02-04_09-31-02.jpg",
-    "thoi_gian": "2026-02-04T09:31:02"
+    "photo_path": "captured_faces/kha-a6/2026-02-04_10-44-12.jpg",
+    "thoi_gian": "2026-02-04T10:44:12"
+  },
+  {
+    "ten": "Duyen",
+    "ma_nv": "a5",
+    "photo_path": "captured_faces/Duyen-a5/2026-02-04_10-44-24.jpg",
+    "thoi_gian": "2026-02-04T10:44:24"
+  },
+  {
+    "ten": "Luân",
+    "ma_nv": "a4",
+    "photo_path": "captured_faces/Luân-a4/2026-02-04_10-44-30.jpg",
+    "thoi_gian": "2026-02-04T10:44:30"
   }
 ]

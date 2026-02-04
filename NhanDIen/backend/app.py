@@ -5,6 +5,7 @@ import json
 import numpy as np
 from datetime import datetime
 import pygame
+import uvicorn
 from fastapi import FastAPI, Body, HTTPException, Response
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,7 +16,11 @@ import requests
 from insightface.app import FaceAnalysis
 from ultralytics import YOLO
 from gtts import gTTS
-from pydub import AudioSegment
+from collections import deque
+
+attendance_queue = deque()
+attendance_lock = threading.Lock()
+attendance_processing = False
 import os
 
 # Tối ưu hóa hệ thống
@@ -28,7 +33,7 @@ DATASET_FOLDER = os.path.join(BASE_DIR, "dataset")
 CHAMCONG_DIR = os.path.join(BASE_DIR, "ChamCong")
 ATTENDANCE_FILE = os.path.join(CHAMCONG_DIR, "ChamCong.json")
 CAPTURE_DIR = os.path.join(BASE_DIR, "captured_faces")
-AUDIO_RETRY = os.path.join(BASE_DIR, "audio", "xin-vui-lòng-thử-lại.wav")
+AUDIO_RETRY = os.path.join(BASE_DIR, "audio", "xin-vui-long-thu-lai.mp3")
 
 THRESHOLD = 0.6
 DETECT_DELAY = 1.5
@@ -38,9 +43,9 @@ COOLDOWN_SECONDS = 300
 YOLO_AUDIO_COOLDOWN = 3
 
 YOLO_AUDIO_MAP = {
-    "with_mask": "xin hãy tháo khẩu tr.wav",
-    "glasses": "xin hãy tháo kính ra.wav",
-    "hat": "xin hãy tháo nón ra.wav",
+    "with_mask": "thao_khau_trang.mp3",
+    "glasses": "thao_kinh.mp3",
+    "hat": "thao_non.mp3",
 }
 
 # ================== BIẾN TOÀN CỤC & CACHE ==================
@@ -110,6 +115,43 @@ def recognize(emb):
                 best_name, best_score = person, score
     return best_name, best_score
 
+def process_attendance_queue():
+    global attendance_processing
+    while True:
+        with attendance_lock:
+            if not attendance_queue:
+                attendance_processing = False
+                return
+            name_to_process, frame_to_process = attendance_queue.popleft()
+
+        # BƯỚC 1: GHI NHẬN VÀO FILE TRƯỚC
+        success_name = save_attendance(frame_to_process, name_to_process)
+
+        # BƯỚC 2: PHÁT AUDIO SAU KHI LƯU XONG
+        if success_name:
+            audio_p = os.path.join(AUDIO_DIR, f"{success_name}.mp3")
+            
+            if os.path.exists(audio_p):
+                try:
+                    # Nếu đang phát dở (YOLO alert chẳng hạn) thì dừng để ưu tiên chào nhân viên
+                    if pygame.mixer.music.get_busy():
+                        pygame.mixer.music.stop()
+                        
+                    pygame.mixer.music.load(audio_p)
+                    pygame.mixer.music.play()
+                    
+                    print(f"🔊 Đang chào: {success_name}")
+                    
+                    # Chờ phát xong âm thanh mới xử lý người tiếp theo (để không bị đè tiếng)
+                    while pygame.mixer.music.get_busy():
+                        time.sleep(0.1)
+                except Exception as e:
+                    print(f"❌ Lỗi mixer: {e}")
+            else:
+                print(f"⚠️ Thiếu file audio: {audio_p}")
+
+        time.sleep(0.2) # Nghỉ ngắn
+
 # ================== HÀM TẠO ÂM THANH GOOGLE TTS ==================
 def generate_audio_ai(text, output_path):
     """Sử dụng gTTS tạo MP3 trực tiếp (Bỏ phần chuyển đổi WAV)"""
@@ -127,27 +169,50 @@ def generate_audio_ai(text, output_path):
         return False
 
 def save_attendance(frame, name_raw):
-    if "-" not in name_raw: return False
+    if "-" not in name_raw: return None
     ten, ma_nv = [x.strip() for x in name_raw.split("-", 1)]
     now = datetime.now()
     today = now.strftime("%Y-%m-%d")
-    if ma_nv in last_processed_time and (time.time() - last_processed_time[ma_nv]) < COOLDOWN_SECONDS: return False
     
-    if not os.path.exists(ATTENDANCE_FILE): data = []
-    else:
-        with open(ATTENDANCE_FILE, "r", encoding="utf-8") as f:
-            try: data = json.load(f)
-            except: data = []
+    # Check Cooldown để tránh ghi liên tục 1 người
+    if ma_nv in last_processed_time and (time.time() - last_processed_time[ma_nv]) < COOLDOWN_SECONDS: 
+        return None
     
-    if any(r.get("ma_nv") == ma_nv and r.get("thoi_gian", "").startswith(today) for r in data): return False
+    # Đọc dữ liệu cũ an toàn
+    try:
+        if not os.path.exists(ATTENDANCE_FILE): 
+            data = []
+        else:
+            with open(ATTENDANCE_FILE, "r", encoding="utf-8") as f:
+                content = f.read().strip()
+                data = json.loads(content) if content else []
+    except:
+        data = []
+
+    # Check nếu hôm nay đã chấm công rồi thì thôi
+    if any(r.get("ma_nv") == ma_nv and r.get("thoi_gian", "").startswith(today) for r in data): 
+        return None
+
+    # Lưu ảnh
     person_dir = os.path.join(CAPTURE_DIR, name_raw)
     os.makedirs(person_dir, exist_ok=True)
     photo_name = f"{today}_{now.strftime('%H-%M-%S')}.jpg"
     cv2.imwrite(os.path.join(person_dir, photo_name), frame)
-    data.append({"ten": ten, "ma_nv": ma_nv, "photo_path": f"captured_faces/{name_raw}/{photo_name}", "thoi_gian": now.strftime("%Y-%m-%dT%H:%M:%S")})
-    with open(ATTENDANCE_FILE, "w", encoding="utf-8") as f: json.dump(data, f, ensure_ascii=False, indent=2)
+
+    # Ghi vào file JSON
+    data.append({
+        "ten": ten, 
+        "ma_nv": ma_nv, 
+        "photo_path": f"captured_faces/{name_raw}/{photo_name}", 
+        "thoi_gian": now.strftime("%Y-%m-%dT%H:%M:%S")
+    })
+    
+    with open(ATTENDANCE_FILE, "w", encoding="utf-8") as f: 
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
     last_processed_time[ma_nv] = time.time()
-    return True
+    print(f"✅ Đã ghi nhận file cho: {ten}")
+    return name_raw # Trả về để gọi Audio
 
 # ================== AI CORE (PHỐI HỢP YOLO & FACE) ==================
 def process_frame(frame):
@@ -206,19 +271,21 @@ def process_frame(frame):
 
                     if detect_start_time and (now - detect_start_time >= DETECT_DELAY):
                         if state == "SUCCESS":
-                            for n in recognized_names:
-                                if save_attendance(frame, n):
-                                    # CHỈNH SỬA TẠI ĐÂY: Phát file .mp3 theo tên folder (Tên-Mã)
-                                    audio_p = os.path.join(BASE_DIR, "audio", f"{n}.mp3")
-                                    
-                                    if os.path.exists(audio_p):
-                                        try:
-                                            if pygame.mixer.music.get_busy(): pygame.mixer.music.stop()
-                                            pygame.mixer.music.load(audio_p)
-                                            pygame.mixer.music.play()
-                                            print(f"🔊 Đang phát âm thanh: {n}.mp3")
-                                        except Exception as e:
-                                            print(f"❌ Lỗi phát nhạc: {e}")
+                            with attendance_lock:
+                                for n in recognized_names:
+                                    # tránh trùng người đã có trong queue
+                                    if n not in [x[0] for x in attendance_queue]:
+                                        attendance_queue.append((n, frame.copy()))
+
+                                # nếu chưa có thread xử lý → bật
+                                global attendance_processing
+                                if not attendance_processing:
+                                    attendance_processing = True
+                                    threading.Thread(
+                                        target=process_attendance_queue,
+                                        daemon=True
+                                    ).start()
+
                         else:
                             # Cảnh báo "Thử lại" mỗi 5 giây
                             if now - last_retry_audio_time > 5:
@@ -369,7 +436,14 @@ def api_get_attendance_history():
     if not os.path.exists(ATTENDANCE_FILE): return []
     with open(ATTENDANCE_FILE, "r", encoding="utf-8") as f: return json.load(f)
 
+# Thêm vào trong khối if __name__ == "__main__":
 if __name__ == "__main__":
+    # Đảm bảo thư mục tồn tại
+    os.makedirs(CHAMCONG_DIR, exist_ok=True)
+    # Khởi tạo file JSON nếu chưa có hoặc bị trống
+    if not os.path.exists(ATTENDANCE_FILE) or os.stat(ATTENDANCE_FILE).st_size == 0:
+        with open(ATTENDANCE_FILE, "w", encoding="utf-8") as f:
+            json.dump([], f)
+            
     build_embeddings_db()
-    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

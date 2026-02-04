@@ -155,7 +155,6 @@ export default function Recognition() {
                     <th>Thời gian</th>
                     <th>Nhân viên</th>
                     <th>Mã NV</th>
-                    <th>Trạng thái</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -181,13 +180,6 @@ export default function Recognition() {
                           <td>{showTime(row)}</td>
                           <td><strong>{row.ten}</strong></td>
                           <td><code>{row.ma_nv}</code></td>
-                          <td>
-                            {isExit ? (
-                              <span className="status-badge warning">🚫 Ra ngoài</span>
-                            ) : (
-                              <span className="status-badge success">✅ Có mặt</span>
-                            )}
-                          </td>
                         </tr>
                       );
                     })
