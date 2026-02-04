@@ -23,7 +23,7 @@ os.environ['KMP_DUPLICATE_LIB_OK'] = 'True'
 
 # ================== CẤU HÌNH ==================
 CAMERA_SOURCE = "rtsp://admin:hd543211@192.168.1.4:1127/Streaming/Channels/101"
-BASE_DIR = r"C:\VScode\NhaDien\NhanDIen\backend"
+BASE_DIR = r"C:\VScode\NhanDien\NhanDIen\backend"
 DATASET_FOLDER = os.path.join(BASE_DIR, "dataset")
 CHAMCONG_DIR = os.path.join(BASE_DIR, "ChamCong")
 ATTENDANCE_FILE = os.path.join(CHAMCONG_DIR, "ChamCong.json")
@@ -32,7 +32,7 @@ AUDIO_RETRY = os.path.join(BASE_DIR, "audio", "xin-vui-lòng-thử-lại.wav")
 
 THRESHOLD = 0.6
 DETECT_DELAY = 1.5
-YOLO_MODEL_PATH = r"C:\VScode\NhaDien\my_model\nhandien\weights\best.pt"
+YOLO_MODEL_PATH = r"C:\VScode\NhanDien\my_model\nhandien\weights\best.pt"
 YOLO_CONF = 0.5
 COOLDOWN_SECONDS = 300
 YOLO_AUDIO_COOLDOWN = 3
@@ -341,6 +341,22 @@ def capture_preview():
     
     # Trả về dữ liệu ảnh trực tiếp
     return Response(content=buffer.tobytes(), media_type="image/jpeg")
+
+# Route để tắt AI khi bắt đầu vào trang Chụp ảnh
+@app.post("/ai/disable")
+def disable_ai():
+    global AI_ENABLED
+    AI_ENABLED = False
+    print("🤖 AI Recognition: DISABLED")
+    return {"success": True}
+
+# Route để bật lại AI khi thoát khỏi trang Chụp ảnh
+@app.post("/ai/enable")
+def enable_ai():
+    global AI_ENABLED
+    AI_ENABLED = True
+    print("🤖 AI Recognition: ENABLED")
+    return {"success": True}
 
 @app.get("/photo")
 def api_serve_photo(path: str = ""):

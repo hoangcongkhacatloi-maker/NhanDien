@@ -9,7 +9,6 @@ export default function Sidebar() {
       <nav className="sidebar-nav">
         <NavLink to="/" end>👁 Nhận diện</NavLink>
         <NavLink to="/capture">📸 Chụp ảnh</NavLink>
-        <NavLink to="/timekeeping-history">📅 Lịch sử chấm công</NavLink>
       </nav>
 
       <div className="sidebar-footer">Version 2.0</div>

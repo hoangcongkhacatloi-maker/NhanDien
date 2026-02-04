@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Sidebar from "./components/Sidebar";
 import Recognition from "./components/pages/Recognition";
 import Capture from "./components/pages/Capture";
-import TimekeepingHistory from "./components/pages/TimekeepingHistory";
 import "./App.css";
 
 export default function App() {
@@ -14,7 +13,6 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Recognition />} />
             <Route path="/capture" element={<Capture />} />
-            <Route path="/timekeeping-history" element={<TimekeepingHistory />} />
           </Routes>
         </main>
       </div>
